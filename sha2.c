@@ -184,7 +184,7 @@ static const uint32_t sha256d_hash1[16] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000100
 };
 
-static void sha256d_80_swap(uint32_t *hash, const uint32_t *data)
+void sha256d_80_swap(uint32_t *hash, const uint32_t *data)
 {
 	uint32_t S[16];
 	int i;
@@ -195,8 +195,8 @@ static void sha256d_80_swap(uint32_t *hash, const uint32_t *data)
 	memcpy(S + 8, sha256d_hash1 + 8, 32);
 	sha256_init(hash);
 	sha256_transform(hash, S, 0);
-	for (i = 0; i < 8; i++)
-		hash[i] = swab32(hash[i]);
+
+	for (i = 0; i < 8; i++) hash[i] = swab32(hash[i]);
 }
 
 void sha256d(unsigned char *hash, const unsigned char *data, int len)
@@ -220,8 +220,9 @@ void sha256d(unsigned char *hash, const unsigned char *data, int len)
 	memcpy(S + 8, sha256d_hash1 + 8, 32);
 	sha256_init(T);
 	sha256_transform(T, S, 0);
-	for (i = 0; i < 8; i++)
-		be32enc((uint32_t *)hash + i, T[i]);
+	for (i = 0; i < 32; i++)
+		hash[i] = ((unsigned char *)T)[i];
+	for (i = 0; i < 8; i++) be32enc((uint32_t *)hash + i, T[i]);
 }
 
 static inline void sha256d_preextend(uint32_t *W)
@@ -605,7 +606,7 @@ int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 		return scanhash_sha256d_4way(thr_id, pdata, ptarget,
 			max_nonce, hashes_done);
 #endif
-	
+
 	memcpy(data, pdata + 16, 64);
 	sha256d_preextend(data);
 	

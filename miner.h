@@ -134,6 +134,7 @@ static inline void le32enc(void *pp, uint32_t x)
 
 void sha256_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
+void sha256d_80_swap(uint32_t *hash, const uint32_t *data);
 void sha256d(unsigned char *hash, const unsigned char *data, int len);
 
 #ifdef USE_ASM
@@ -205,21 +206,14 @@ extern size_t address_to_script(unsigned char *out, size_t outsz, const char *ad
 extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
-extern void diff_to_target(uint32_t *target, double diff);
+extern void weight_to_target(uint32_t *target, double diff);
 
 struct stratum_job {
-	char *job_id;
-	unsigned char prevhash[32];
-	size_t coinbase_size;
-	unsigned char *coinbase;
-	unsigned char *xnonce2;
-	int merkle_count;
-	unsigned char **merkle;
-	unsigned char version[4];
-	unsigned char nbits[4];
-	unsigned char ntime[4];
 	bool clean;
-	double diff;
+	char *job_id;
+	char *data;
+	double weigth;
+    size_t nonce_size;
 };
 
 struct stratum_ctx {
@@ -236,9 +230,6 @@ struct stratum_ctx {
 	double next_diff;
 
 	char *session_id;
-	size_t xnonce1_size;
-	unsigned char *xnonce1;
-	size_t xnonce2_size;
 	struct stratum_job job;
 	pthread_mutex_t work_lock;
 };
@@ -251,6 +242,7 @@ void stratum_disconnect(struct stratum_ctx *sctx);
 bool stratum_subscribe(struct stratum_ctx *sctx);
 bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
 bool stratum_handle_method(struct stratum_ctx *sctx, const char *s);
+void inc_xnonce(unsigned int* data);
 
 struct thread_q;
 

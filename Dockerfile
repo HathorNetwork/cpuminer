@@ -1,22 +1,33 @@
-#
-# Dockerfile for cpuminer
-# usage: docker run creack/cpuminer --url xxxx --user xxxx --pass xxxx
-# ex: docker run creack/cpuminer --url stratum+tcp://ltc.pool.com:80 --user creack.worker1 --pass abcdef
-#
-#
+FROM alpine:3.9 as builder
 
-FROM            ubuntu:14.04
-MAINTAINER      Guillaume J. Charmes <guillaume@charmes.net>
+RUN set -x \
+  && apk add --no-cache -t .build-deps \
+         autoconf \
+         automake \
+         build-base \
+         curl \
+         curl-dev \
+         git \
+         openssl-dev
 
-RUN             apt-get update -qq && \
-                apt-get install -qqy automake libcurl4-openssl-dev git make
+COPY . /tmp/cpuminer
 
-RUN             git clone https://github.com/pooler/cpuminer
+RUN set -x \
+  # Compile from source code.
+  && cd /tmp/cpuminer \
+  && ./autogen.sh \
+  && ./configure CFLAGS="-O3 -march=native" \
+  && make install
 
-RUN             cd cpuminer && \
-                ./autogen.sh && \
-                ./configure CFLAGS="-O3" && \
-                make
+FROM alpine:3.9
 
-WORKDIR         /cpuminer
-ENTRYPOINT      ["./minerd"]
+RUN set -x \
+  && apk add --no-cache \
+         libcurl \
+         libgcc \
+         libstdc++ \
+         openssl
+
+COPY --from=builder /usr/local/bin/minerd /usr/local/bin/minerd
+
+ENTRYPOINT ["minerd"]

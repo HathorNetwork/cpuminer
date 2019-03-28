@@ -6,15 +6,15 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 create_docker_image () {
     tag="$1"
     echo 'building docker image'
-    docker build -t cpuminer:"$tag" "$DIR"
+    docker build -t boxster:"$tag" "$DIR"
 }
 
 # receive tag as argument
 push_image () {
     echo 'Pushing image to repository'
     tag="$1"
-    docker tag cpuminer:"$tag" 769498303037.dkr.ecr.us-east-1.amazonaws.com/cpuminer:"$tag"
-    docker push 769498303037.dkr.ecr.us-east-1.amazonaws.com/cpuminer:"$tag"
+    docker tag boxster:"$tag" 537254410709.dkr.ecr.us-east-1.amazonaws.com/boxster:"$tag"
+    docker push 537254410709.dkr.ecr.us-east-1.amazonaws.com/boxster:"$tag"
 }
 
 # Initialize all the option variables.

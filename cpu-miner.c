@@ -642,7 +642,6 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 
 	free(work->job_id);
 	work->job_id = strdup(sctx->job.job_id);
-	// printf("GENERATING JOB WITH ID %s\n", work->job_id);
 
 	memcpy(work->data, sctx->job.data, 64);
 	memset(work->data+16, 0, 64);
@@ -709,21 +708,28 @@ static void *miner_thread(void *userdata)
 		int64_t max64;
 		int rc;
 
-		while (time(NULL) >= g_work_time + 120) {
+		// Should only sleep when there are no jobs
+		while (time(NULL) >= g_work_time + 2*STRATUM_IDLETIME) {
+			if (opt_debug)
+				applog(LOG_DEBUG,
+							 "DEBUG: thread %d: job_id='%s' (time='%d') stale. Sleeping for 1 second",
+							 g_work.job_id,
+							 g_work_time);
 			sleep(1);
 		}
 
 		pthread_mutex_lock(&g_work_lock);
 
-		if (memcmp(work.data, g_work.data, 64)) {
-			work_free(&work);
+		if (memcmp(work.data, g_work.data, 64) ||
+				memcmp(work.job_id, g_work.job_id, 32) ||
+				memcmp(work.target, g_work.target, 32) ||
+				work.data[19] == 0xffffffff) {
 			inc_xnonce(g_work.data);
+			work_free(&work);
 			work_copy(&work, &g_work);
 			work.data[19] = 0;
 		} else {
 			work.data[19]++;
-			if (memcmp(work.job_id, g_work.job_id, 32))
-				memcpy(work.job_id, g_work.job_id, 32);
 		}
 
 		pthread_mutex_unlock(&g_work_lock);
@@ -735,9 +741,20 @@ static void *miner_thread(void *userdata)
 
 		max64 = HASH_SCANTIME * thr_hashrates[thr_id];
 		if (max64 == 0) max64 = 0xffffff;
+		max64 += work.data[19];
 
-		max_nonce = work.data[19] + max64;
-		if (max_nonce > 0xffffffff) max_nonce = 0xffffffff;
+		if (max64 > 0xffffffff) max_nonce = 0xffffffff;
+		else max_nonce = max64;
+
+		if (opt_debug)
+			applog(LOG_DEBUG,
+						 "DEBUG: thread %d: working from 0x%08x to 0x%08x with extra nonce 0x%08x%08x%08x",
+						 thr_id,
+						 work.data[19],
+						 max_nonce,
+						 work.data[16],
+						 work.data[17],
+						 work.data[18]);
 
 		/* scan nonces for a proof-of-work hash */
 		switch (opt_algo) {

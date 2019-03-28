@@ -1595,7 +1595,7 @@ out:
 	return rval;
 }
 
-void inc_xnonce(unsigned int* data) {
+void inc_xnonce(uint32_t* data) {
 	for (int i = 18; i >= 16; --i)
 		if (data[i] == 0xffffffff) data[i] = 0;
 		else {

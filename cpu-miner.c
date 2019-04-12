@@ -138,6 +138,7 @@ static char *rpc_user, *rpc_pass;
 static int pk_script_size;
 static unsigned char pk_script[42];
 static char coinbase_sig[101] = "";
+char coinbase_addr[101] = "";
 char *opt_cert;
 char *opt_proxy;
 long opt_proxy_type;
@@ -798,26 +799,17 @@ static void *miner_thread(void *userdata)
 			}
 		}
 
-		/* if nonce found, submit work */
 		if (rc) {
-			uint32_t hash_be[8], hash[8], hash2[8], target_be[8], data_be[16];
-			char hash_str[65], target_str[65], data_str[257], hash_str2[257];
-
-			sha256d_80_swap(hash, work.data);
-			for (i = 0; i < 32; i++) work.data[i] = swab32(work.data[i]);
-			sha256d((unsigned char *)hash2, (unsigned char *)work.data, 80);
-
-			for (i = 0; i < 8; i++)
-				be32enc(target_be + i, work.target[7 - i]);
-
-			bin2hex(hash_str, (unsigned char *)hash, 32);
-			bin2hex(hash_str2, (unsigned char *)hash2, 32);
-			bin2hex(data_str, (unsigned char *)work.data, 128);
-			bin2hex(target_str, (unsigned char *)target_be, 32);
-
-			for (i = 0; i < 32; i++) work.data[i] = swab32(work.data[i]);
+			applog(LOG_DEBUG, "SUBMIT: thread='%d' job_id='%s' nonce='0x%08x%08x%08x%08x'",
+						 thr_id,
+						 work.job_id,
+						 work.data[16],
+						 work.data[17],
+						 work.data[18],
+						 work.data[19]);
 		}
 
+		/* if nonce found, submit work */
 		if (rc && !opt_benchmark && !submit_work(mythr, &work)) break;
 	}
 
@@ -885,7 +877,7 @@ static void *stratum_thread(void *userdata)
 			restart_threads();
 
 			if (!stratum_connect(&stratum, stratum.url) ||
-			    !stratum_subscribe(&stratum)) {
+			    !stratum_subscribe(&stratum, coinbase_addr)) {
 				stratum_disconnect(&stratum);
 				if (opt_retries >= 0 && ++failures > opt_retries) {
 					applog(LOG_ERR, "...terminating workio thread");
@@ -1206,12 +1198,7 @@ static void parse_arg(int key, char *arg, char *pname)
 		have_gbt = false;
 		break;
 	case 1013:			/* --coinbase-addr */
-		pk_script_size = address_to_script(pk_script, sizeof(pk_script), arg);
-		if (!pk_script_size) {
-			fprintf(stderr, "%s: invalid address -- '%s'\n",
-				pname, arg);
-			show_usage_and_exit(1);
-		}
+		strcpy(coinbase_addr, arg);
 		break;
 	case 1015:			/* --coinbase-sig */
 		if (strlen(arg) + 1 > sizeof(coinbase_sig)) {

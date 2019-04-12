@@ -1178,7 +1178,7 @@ static const char *get_stratum_session_id(json_t *val)
 	return NULL;
 }
 
-bool stratum_subscribe(struct stratum_ctx *sctx)
+bool stratum_subscribe(struct stratum_ctx *sctx, char* addr)
 {
 	char *s, *sret = NULL;
 	const char *sid, *xnonce1;
@@ -1188,8 +1188,24 @@ bool stratum_subscribe(struct stratum_ctx *sctx)
 	bool ret = false, retry = false;
 
 start:
-	s = malloc(128);
-	sprintf(s, "{\"jsonrpc\": \"2.0\", \"id\": \"61e39f788ae04442b97d52c6b814ebab\", \"method\": \"subscribe\", \"params\": null}");
+	s = malloc(256);
+	if (strlen(addr) > 0) {
+		sprintf(s, "\
+		{\
+			\"jsonrpc\": \"2.0\", \
+			\"id\": \"61e39f788ae04442b97d52c6b814ebab\", \
+			\"method\": \"subscribe\", \
+			\"params\": { \"address\": \"%s\" }\
+		}", addr);
+	} else {
+		sprintf(s, "\
+		{\
+			\"jsonrpc\": \"2.0\", \
+			\"id\": \"61e39f788ae04442b97d52c6b814ebab\", \
+			\"method\": \"subscribe\", \
+			\"params\": null\
+		}");
+	}
 
 	if (!stratum_send_line(sctx, s)) {
 		applog(LOG_ERR, "stratum_subscribe send failed");

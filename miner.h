@@ -242,7 +242,7 @@ void stratum_disconnect(struct stratum_ctx *sctx);
 bool stratum_subscribe(struct stratum_ctx *sctx, char* address);
 bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
 bool stratum_handle_method(struct stratum_ctx *sctx, const char *s);
-void inc_xnonce(uint32_t* data);
+void inc_xnonce(unsigned char* data);
 
 struct thread_q;
 

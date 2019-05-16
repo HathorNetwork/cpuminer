@@ -262,6 +262,7 @@ struct work {
 	uint32_t target[8];
 
 	char *job_id;
+	size_t nonce_size;
 };
 
 static struct work g_work;
@@ -648,6 +649,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	memset(work->data+16, 0, 64);
 	work->data[20] = 0x80000000;
 	work->data[31] = 0x00000280;
+	work->nonce_size = sctx->job.nonce_size;
 
 	for (int i = 0; i < 20; i++) work->data[i] = swab32(work->data[i]);
 
@@ -724,8 +726,9 @@ static void *miner_thread(void *userdata)
 		if (memcmp(work.data, g_work.data, 64) ||
 				memcmp(work.job_id, g_work.job_id, 32) ||
 				memcmp(work.target, g_work.target, 32) ||
-				work.data[19] == 0xffffffff) {
-			inc_xnonce(g_work.data);
+				(work.data[19] & 0xffffff) == 0xffffff)
+		{
+			inc_xnonce((unsigned char *)g_work.data);
 			work_free(&work);
 			work_copy(&work, &g_work);
 			work.data[19] = 0;
@@ -741,10 +744,10 @@ static void *miner_thread(void *userdata)
 		gettimeofday(&tv_start, NULL);
 
 		max64 = HASH_SCANTIME * thr_hashrates[thr_id];
-		if (max64 == 0) max64 = 0xffffff;
+		if (max64 == 0) max64 = 0xfffff;
 		max64 += work.data[19];
 
-		if (max64 > 0xffffffff) max_nonce = 0xffffffff;
+		if (max64 > 0xffffff) max_nonce = 0xffffff;
 		else max_nonce = max64;
 
 		if (opt_debug)

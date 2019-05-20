@@ -40,7 +40,7 @@
 
 #define PROGRAM_NAME		"minerd"
 #define STRATUM_IDLETIME		300
-#define HASH_SCANTIME		10
+#define HASH_SCANTIME		1
 
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
@@ -721,11 +721,27 @@ static void *miner_thread(void *userdata)
 
 		pthread_mutex_lock(&g_work_lock);
 
+		/*
+		Each miner thread grabs a 'chunk' of nonce to iterate and try to find the solution to the problem.
+		A 'chunk' will be the 3 least significative bytes (big endian representation here).
+		Each time it grabs one of these 'chunks' it increments the rest of the nonce (what we call xnonce).
+
+		+----------------+---+
+		|xnonce(16 bytes)|   | <- nonce 'chunk' (3 bytes)
+		+----------------+---+
+
+		For transactions we only have 16 bytes virtually.
+		Once we send back any nonce with more than 4 bytes, the server will truncate the value yielding an invalid hash.
+
+		This should not be a problem on CPUs, since we don't expect a CPU to be able to increase the xnonce 256 times
+		(what would overflow the first 4 nonce bytes) in a job timestamp - currently 1 sec on average by stratum definition.
+		*/
 		if (memcmp(work.data, g_work.data, 64) ||
 				memcmp(work.job_id, g_work.job_id, 32) ||
 				memcmp(work.target, g_work.target, 32) ||
-				work.data[19] == 0xffffffff) {
-			inc_xnonce(g_work.data);
+				(work.data[19] & 0xffffff) == 0xffffff)
+		{
+			inc_xnonce((unsigned char *)g_work.data);
 			work_free(&work);
 			work_copy(&work, &g_work);
 			work.data[19] = 0;
@@ -740,11 +756,13 @@ static void *miner_thread(void *userdata)
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
 
+		// Choose search range based on thread hashrate to run scan loop in HASH_SCANTIME seconds
 		max64 = HASH_SCANTIME * thr_hashrates[thr_id];
-		if (max64 == 0) max64 = 0xffffff;
+		// If we have no hashrate computed, we let the thread look for 2^20 hashes.
+		if (max64 == 0) max64 = 0xfffff;
 		max64 += work.data[19];
 
-		if (max64 > 0xffffffff) max_nonce = 0xffffffff;
+		if (max64 > 0xffffff) max_nonce = 0xffffff;
 		else max_nonce = max64;
 
 		if (opt_debug)

@@ -262,7 +262,6 @@ struct work {
 	uint32_t target[8];
 
 	char *job_id;
-	size_t nonce_size;
 };
 
 static struct work g_work;
@@ -649,7 +648,6 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	memset(work->data+16, 0, 64);
 	work->data[20] = 0x80000000;
 	work->data[31] = 0x00000280;
-	work->nonce_size = sctx->job.nonce_size;
 
 	for (int i = 0; i < 20; i++) work->data[i] = swab32(work->data[i]);
 
